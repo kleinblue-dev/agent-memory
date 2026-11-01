@@ -1,0 +1,18 @@
+{
+  "id": "0444121174cc",
+  "kind": "fact",
+  "text": "待确认：用户的默认编辑器可能是 VS Code，尚未在会话中明确确认。",
+  "tags": [
+    "工具",
+    "待确认"
+  ],
+  "confidence": 0,
+  "importance": 0.7,
+  "subject": "默认编辑器",
+  "createdAt": 1793480000000,
+  "validFrom": 1793480000000,
+  "validUntil": null,
+  "supersedes": null,
+  "supersededBy": null,
+  "updatedAt": 1793480000000
+}

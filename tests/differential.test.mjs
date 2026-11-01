@@ -11,11 +11,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { join, dirname } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import * as portRecall from '../lib/recall.mjs'
 import * as portStore from '../lib/store.mjs'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
 
 // 移植源：默认按仓库相对位置找（<workspace>/agent-memory/tests/../../plugins/personal-agent），
 // 也可以用 PA_PLUGIN_DIR 指向任意一份 dsh-plugin-personal-agent 检出。
