@@ -271,6 +271,30 @@ test('CLI：错误用法给 1，环境问题给 2', () => {
   rmSync(root, { recursive: true, force: true })
 })
 
+test('CLI：inject 整块不超过 --budget（插件原实现只约束命中行）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'am-cli-'))
+  for (let index = 0; index < 3; index += 1) {
+    runCli(['--root', root, 'remember',
+      `部署规范 ${index}：所有发布脚本都必须放在工具目录里并按天备份，回滚时只允许用同一天的快照，不允许跨天回滚${'，细节'.repeat(6)}`,
+      '--kind', 'fact', '--tags', '部署'])
+  }
+  const payload = JSON.parse(runCli(['--root', root, '--json', 'inject', '部署规范', '--budget', '200']).stdout)
+  assert.equal(payload.budgetTokens, 200)
+  assert.ok(payload.tokens <= 200, `block tokens ${payload.tokens} > 200`)
+  assert.ok(payload.count <= 3)
+  rmSync(root, { recursive: true, force: true })
+})
+
+test('CLI：同 id 重写不显示「已取代自己」', () => {
+  const root = mkdtempSync(join(tmpdir(), 'am-cli-'))
+  runCli(['--root', root, 'remember', '同一句话写两遍', '--kind', 'fact'])
+  const second = runCli(['--root', root, 'remember', '同一句话写两遍', '--kind', 'fact'])
+  assert.equal(second.code, 0)
+  assert.ok(second.stdout.includes('已更新'))
+  assert.ok(!second.stdout.includes('已取代'), `unexpected self-supersede text: ${second.stdout}`)
+  rmSync(root, { recursive: true, force: true })
+})
+
 test('CLI：--json doctor 结构稳定', () => {
   const root = mkdtempSync(join(tmpdir(), 'am-cli-'))
   const r = runCli(['--root', root, '--json', 'doctor'])

@@ -167,7 +167,11 @@ function cmdRemember({ store, flags, positionals }) {
     return 0
   }
   const verb = result.created ? '已记住' : '已更新'
-  const replaced = result.superseded ? `；已取代 [mem:${result.superseded}]` : ''
+  // 同 id 重写时，库内部的取代目标可能指向自己（插件原实现的已知怪癖）；
+  // 对用户没有意义，CLI 不展示它，避免出现「已取代 [mem:自己]」。
+  const replaced = result.superseded && result.superseded !== result.record.id
+    ? `；已取代 [mem:${result.superseded}]`
+    : ''
   out(`${verb} [mem:${result.record.id}]（${result.record.kind}，重要度 ${result.record.importance}${replaced}；活动 ${store.stats().active} 条）`)
   return 0
 }
@@ -202,9 +206,15 @@ function cmdInject({ store, flags, positionals }) {
   const query = requireText(flags, positionals, 'query')
   const k = Math.min(intFlag(flags, 'k', RECALL_DEFAULTS.k), RECALL_DEFAULTS.toolK)
   const budgetTokens = intFlag(flags, 'budget', RECALL_DEFAULTS.budgetTokens)
-  const hits = recallHits(store.list(), query, { k, budgetTokens, minConfidence: 1 })
-  const block = renderRecallBlock(hits)
-  if (flagsJson()) printJson({ query, count: hits.length, tokens: estimateTokens(block), block, ids: hits.map((hit) => hit.entry.id) })
+  let hits = recallHits(store.list(), query, { k, budgetTokens, minConfidence: 1 })
+  // 整块预算兜底：插件原实现的 300 只约束命中行（wrapper 文本不计，实测整块可到 313）。
+  // CLI 这里多一层：整块 estimateTokens 超过预算就丢掉最后一条，保证「注入块 ≤ 预算」这句话是真的。
+  let block = renderRecallBlock(hits)
+  while (hits.length > 0 && estimateTokens(block) > budgetTokens) {
+    hits = hits.slice(0, -1)
+    block = renderRecallBlock(hits)
+  }
+  if (flagsJson()) printJson({ query, count: hits.length, tokens: estimateTokens(block), budgetTokens, block, ids: hits.map((hit) => hit.entry.id) })
   else if (block) process.stdout.write(`${block}\n`)
   return 0
 }

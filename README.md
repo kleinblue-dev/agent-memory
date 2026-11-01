@@ -68,6 +68,8 @@ score    = relevance × (0.55 + 0.45 × recency) × (0.6 + 0.4 × importance)
 relevance= matchedWeight / min(总权重, 条目 token 数)        ← 对称归一化
 recency  = 0.5 ^ (年龄 / 半衰期)；半衰期：person 180d / preference 120d / fact 90d / event 30d / task 7d
 预算     = 300 tokens（注入，k=3）或 800 tokens（工具，k=8）；wrapper 先扣 48
+         注意：插件原实现的 300 只约束命中行，整块实测上界 313；CLI 的 inject 另加一层整块兜底，
+         保证 `estimateTokens(block) <= --budget`（默认 300）
 ```
 
 ## CLI
