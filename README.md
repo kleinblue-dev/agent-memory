@@ -31,7 +31,9 @@ node memory.mjs recall "我之前说过什么关于部署的"            # 工�
 - **双时态取代**：同 `subject` 重写自动取代旧条；无 subject 时用 Jaccard(≥0.55, ≥6 共享 token) 识别「同一句话说第二遍」。
 - **词法召回**：CJK 二元组 + 英文词，18 组中英同义词（别名权重 0.6），类型先验 × 时间衰减 × 重要度。
 - **三种读法**：`inject`（自动注入，安静时零输出）/ `recall`（工具检索）/ `list`（浏览）。
-- **迁移**：`export` / `import`（JSONL，保留 id 与字段，幂等）。
+- **迁移**：`export` / `import`（JSONL）。按记录**原样落盘**：id、`createdAt/validFrom/updatedAt`、
+  `validUntil/supersedes/supersededBy` 取代链、`profile` 全部保留；被取代的历史条目不会被复活，
+  当前真相不会被旧值顶掉；墓碑不迁移（留在源库）。同 id 已存在默认跳过，`--force` 才覆盖。
 
 ## 存储格式
 
@@ -105,9 +107,14 @@ const block = renderRecallBlock(recall(store.list(), userText, { k: 3, budgetTok
 node --test
 ```
 
-- `tests/memory.test.mjs`：分词/打分/治理/CLI 全链路（24 条，离线）。
-- `tests/differential.test.mjs`：**差分测试** —— 把插件原始实现与移植版跑同一批输入，断言 token、权重、分数、
+共 **63 条**，全部离线（真实记忆库只做只读校验，执行前后 SHA256 快照必须一致）：
+
+- `tests/memory.test.mjs`（26 条）：分词/打分/治理/CLI 全链路，含「inject 整块不超预算」「同 id 重写不显示自取代」
+  和「export→import 原样迁移（历史不复活、profile 跟着走）」。
+- `tests/differential.test.mjs`（6 条）：**差分测试** —— 把插件原始实现与移植版跑同一批输入，断言 token、权重、分数、
   选中集合、取代链、统计逐项相同。插件源码不在本机时自动 skip（`PA_PLUGIN_DIR` 指向它即可跑）。
+- `tests/adversarial.test.mjs`（31 条）：随机语料/随机写序列差分、真实库只读哈希、损坏文件、退出码、
+  `--root` 优先级、迁移保真契约。
 
 ## 已知边界
 

@@ -191,12 +191,16 @@ test('profile：get 空库有默认值，set 合并写盘', () => {
   assert.equal(openStore({ root }).profileGet().name, '克莱因蓝')
 })
 
-test('损坏的条目文件被跳过，统计里计数', () => {
+test('损坏的条目文件被跳过并计入 corrupt（坏 JSON 不再静默忽略）', () => {
   const { root, store } = tempStore()
   writeFileSync(join(root, 'entries', 'broken.json'), '{ not json', 'utf8')
+  writeFileSync(join(root, 'entries', 'shape.json'), '{"id":1}', 'utf8')
   const reopened = openStore({ root })
-  assert.equal(reopened.stats().corrupt, 0) // 无法解析的文件既不是条目也不是墓碑
+  assert.equal(reopened.stats().corrupt, 2)
   assert.equal(reopened.stats().total, store.stats().total)
+  // 其他条目仍可用
+  reopened.put({ kind: 'fact', text: '损坏文件不影响新写入' })
+  assert.equal(reopened.stats().active, 1)
 })
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
@@ -257,6 +261,49 @@ test('CLI：export → import 往返保真（同 store 不重复）', () => {
   assert.equal(stats.active, 2)
   const again = JSON.parse(runCli(['--root', to, 'import', exported, '--json']).stdout)
   assert.equal(again.skipped, 2)
+  rmSync(from, { recursive: true, force: true })
+  rmSync(to, { recursive: true, force: true })
+})
+
+test('CLI：export → import 原样迁移（历史不复活、当前值不被旧值顶掉、profile 跟着走）', () => {
+  const from = mkdtempSync(join(tmpdir(), 'am-mig-from-'))
+  const to = mkdtempSync(join(tmpdir(), 'am-mig-to-'))
+  const fromStore = openStore({ root: from })
+  const retired = fromStore.put({ kind: 'fact', text: '验收标准：只要通过', subject: '验收标准' })
+  const current = fromStore.put({ kind: 'fact', text: '验收标准：必须带命令回执', subject: '验收标准' })
+  fromStore.put({ kind: 'preference', text: '偏好：先结论后证据', tags: ['沟通'], confidence: 2 })
+  fromStore.profileSet({ name: '测试用户', timezone: 'Asia/Shanghai', locale: 'zh-CN' })
+
+  const exported = join(from, 'migrate.jsonl')
+  assert.equal(runCli(['--root', from, 'export', '--out', exported]).code, 0)
+  const imported = runCli(['--root', to, 'import', exported, '--json'])
+  assert.equal(imported.code, 0, imported.stderr)
+  assert.equal(JSON.parse(imported.stdout).created, 3)
+
+  const toStore = openStore({ root: to })
+  assert.equal(toStore.stats().active, 2, '被取代的历史条目不许复活成活动条目')
+  assert.equal(toStore.stats().superseded, 1)
+  const old = toStore.get(retired.record.id)
+  assert.ok(old.validUntil, '历史条目的 validUntil 必须保留')
+  assert.equal(old.supersededBy, current.record.id)
+  assert.equal(toStore.get(current.record.id).createdAt, current.record.createdAt, '时间戳必须保真')
+  assert.equal(toStore.get(current.record.id).validUntil, null)
+  assert.equal(toStore.profileGet().name, '测试用户')
+
+  // 二次导出：除 updatedAt 外字段必须一致
+  const exportedAgain = join(to, 'again.jsonl')
+  runCli(['--root', to, 'export', '--out', exportedAgain])
+  const strip = (file) => readFileSync(file, 'utf8').trim().split('\n')
+    .map((line) => JSON.parse(line))
+    .map(({ updatedAt, ...rest }) => {
+      if (rest.__profile__) {
+        const { updatedAt: _profileUpdatedAt, ...profile } = rest.__profile__
+        return { __profile__: profile }
+      }
+      return rest
+    })
+    .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+  assert.deepEqual(strip(exportedAgain), strip(exported))
   rmSync(from, { recursive: true, force: true })
   rmSync(to, { recursive: true, force: true })
 })

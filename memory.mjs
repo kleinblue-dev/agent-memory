@@ -321,10 +321,14 @@ function cmdStats({ store, flags }) {
 
 function cmdExport({ store, flags }) {
   const entries = store.list({ includeInactive: true })
-  const payload = entries.map((entry) => JSON.stringify(entry)).join('\n') + (entries.length ? '\n' : '')
+  const lines = entries.map((entry) => JSON.stringify(entry))
+  const profile = store.profileGet()
+  const profileKeys = Object.keys(profile).filter((key) => key !== 'schemaVersion' && key !== 'updatedAt')
+  if (profileKeys.length) lines.push(JSON.stringify({ __profile__: profile }))
+  const payload = lines.join('\n') + (lines.length ? '\n' : '')
   if (flags.out) {
     writeFileSync(resolve(String(flags.out)), payload, 'utf8')
-    out(`已导出 ${entries.length} 条 → ${resolve(String(flags.out))}`)
+    out(`已导出 ${entries.length} 条${profileKeys.length ? ' + profile' : ''} → ${resolve(String(flags.out))}`)
   } else {
     process.stdout.write(payload)
   }
@@ -350,32 +354,40 @@ function cmdImport({ store, positionals, flags }) {
   if (!Array.isArray(records)) throw new UsageError('导入文件不是记录数组')
   const dryRun = flags['dry-run'] === true
   const force = flags.force === true
-  const summary = { total: records.length, created: 0, replaced: 0, skipped: 0, invalid: 0 }
+  const summary = { total: records.length, created: 0, replaced: 0, skipped: 0, invalid: 0, profile: 0 }
   for (const record of records) {
-    if (!record || typeof record.text !== 'string' || typeof record.kind !== 'string') {
+    // 导出文件里可以带一行 profile（迁移时画像也要跟着走）
+    if (record && typeof record === 'object' && record.__profile__ && typeof record.__profile__ === 'object') {
+      if (!dryRun) store.profileSet(record.__profile__)
+      summary.profile += 1
+      continue
+    }
+    // 按记录原样落盘：不经过 put()，否则历史条目会被复活、旧值会顶掉当前真相。
+    const existing = typeof record?.id === 'string' ? store.get(record.id) : undefined
+    if (dryRun) {
+      const valid = record && typeof record === 'object'
+        && typeof record.text === 'string' && record.text.length > 0
+        && typeof record.kind === 'string'
+      if (!valid) summary.invalid += 1
+      else if (existing && !force) summary.skipped += 1
+      else summary.created += 1
+      continue
+    }
+    const result = store.importRecord(record, { force })
+    if (result.ok) {
+      if (result.created) summary.created += 1
+      else summary.replaced += 1
+    } else if (result.reason === 'invalid') {
       summary.invalid += 1
-      continue
-    }
-    const id = entryId(record.kind, record.text)
-    if (store.get(id) && !force) {
+    } else {
       summary.skipped += 1
-      continue
     }
-    if (!dryRun) {
-      store.put({
-        text: record.text,
-        kind: record.kind,
-        tags: record.tags,
-        confidence: record.confidence,
-        importance: record.importance,
-        subject: record.subject,
-        sourceSessionId: record.sourceSessionId,
-      })
-    }
-    summary.created += 1
   }
   if (flagsJson()) printJson({ dryRun, ...summary })
-  else out(`${dryRun ? 'DRY-RUN ' : ''}导入 ${summary.total} 条：新建 ${summary.created}，已存在跳过 ${summary.skipped}，非法 ${summary.invalid}${force ? '（--force 会覆盖同内容条目）' : ''}`)
+  else {
+    out(`${dryRun ? 'DRY-RUN ' : ''}导入 ${summary.total} 行：新建 ${summary.created}，覆盖 ${summary.replaced}，`
+      + `已存在跳过 ${summary.skipped}，非法 ${summary.invalid}${summary.profile ? `，profile ${summary.profile}` : ''}`)
+  }
   return 0
 }
 
