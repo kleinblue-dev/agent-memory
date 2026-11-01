@@ -1,0 +1,25 @@
+{
+  "name": "agent-memory",
+  "version": "1.0.0",
+  "description": "Zero-dependency long-term memory layer: per-entry JSON store, lexical CJK+English recall with synonym bridge, bi-temporal supersession, budgeted prompt injection. Extracted from dsh-plugin-personal-agent.",
+  "type": "module",
+  "bin": {
+    "agent-memory": "./memory.mjs"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "memory",
+    "agent",
+    "llm",
+    "recall",
+    "cjk",
+    "bi-temporal",
+    "zero-dependency"
+  ],
+  "license": "MIT"
+}

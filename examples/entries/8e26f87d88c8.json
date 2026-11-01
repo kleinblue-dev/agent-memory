@@ -1,0 +1,18 @@
+{
+  "id": "8e26f87d88c8",
+  "kind": "fact",
+  "text": "演示项目的构建脚本是 scripts/build.sh，产物固定写到 dist/，dist/ 不进版本库。",
+  "tags": [
+    "演示项目",
+    "构建"
+  ],
+  "confidence": 1,
+  "importance": 0.7,
+  "subject": "构建产物",
+  "createdAt": 1793450000000,
+  "validFrom": 1793450000000,
+  "validUntil": null,
+  "supersedes": null,
+  "supersededBy": null,
+  "updatedAt": 1793450000000
+}

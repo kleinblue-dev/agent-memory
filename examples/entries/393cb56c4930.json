@@ -1,0 +1,19 @@
+{
+  "id": "393cb56c4930",
+  "kind": "preference",
+  "text": "用户偏好把周报写成 5 行以内：先给结论，再给数据来源，不要用「可以考虑」这类措辞。",
+  "tags": [
+    "沟通",
+    "周报",
+    "偏好"
+  ],
+  "confidence": 2,
+  "importance": 0.9,
+  "subject": "周报格式",
+  "createdAt": 1793400000000,
+  "validFrom": 1793400000000,
+  "validUntil": null,
+  "supersedes": null,
+  "supersededBy": null,
+  "updatedAt": 1793400000000
+}

@@ -1,0 +1,13 @@
+# local verification artifacts (not part of the published skill)
+verify/
+*.log
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# exported memory dumps may contain personal data — never commit them
+*.export.jsonl
+export.jsonl
